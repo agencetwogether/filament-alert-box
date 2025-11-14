@@ -1,12 +1,12 @@
 <?php
 
-namespace VendorName\Skeleton\Commands;
+namespace Agencetwogether\AlertBox\Commands;
 
 use Illuminate\Console\Command;
 
-class SkeletonCommand extends Command
+class AlertBoxCommand extends Command
 {
-    public $signature = 'skeleton';
+    public $signature = 'filament-alert-box';
 
     public $description = 'My command';
 
