@@ -9,6 +9,7 @@ use Agencetwogether\AlertBox\Enums\Block as BlockEnum;
 use Agencetwogether\AlertBox\Settings\SettingAlertBox;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\RichEditor;
@@ -65,6 +66,42 @@ class ManageAlertBox extends SettingsPage
     public static function getCluster(): ?string
     {
         return config('filament-alert-box.page.cluster');
+    }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $raw = $data['alerts'] ?? [];
+
+        $data['alerts'] = AlertBox::isLegacyAlertsFormat($raw)
+            ? $raw
+            : collect($raw)->get($this->getCurrentPanelId(), []);
+
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $raw = app(static::$settings)->alerts;
+
+        if (AlertBox::isLegacyAlertsFormat($raw)) {
+            $allAlerts = collect(Filament::getPanels())
+                ->keys()
+                ->mapWithKeys(fn (string $panelId): array => [$panelId => $raw])
+                ->toArray();
+        } else {
+            $allAlerts = $raw;
+        }
+
+        $allAlerts[$this->getCurrentPanelId()] = $data['alerts'] ?? [];
+
+        $data['alerts'] = $allAlerts;
+
+        return $data;
+    }
+
+    protected function getCurrentPanelId(): string
+    {
+        return Filament::getCurrentPanel()?->getId() ?? 'default';
     }
 
     public function form(Schema $schema): Schema

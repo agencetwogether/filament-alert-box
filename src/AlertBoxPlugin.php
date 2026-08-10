@@ -8,6 +8,7 @@ use Filament\Contracts\Plugin;
 use Filament\Panel;
 use Filament\Support\Facades\FilamentView;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Throwable;
 
 class AlertBoxPlugin implements Plugin
@@ -16,9 +17,11 @@ class AlertBoxPlugin implements Plugin
     use Concerns\CanCustomizeColors;
     use Concerns\CanCustomizePage;
 
+    public const ID = 'agencetwogether/filament-alert-box';
+
     public function getId(): string
     {
-        return 'agencetwogether/filament-alert-box';
+        return self::ID;
     }
 
     public function register(Panel $panel): void
@@ -31,38 +34,91 @@ class AlertBoxPlugin implements Plugin
 
     public function boot(Panel $panel): void
     {
-        $this->registerRenderHooks($panel);
+        $this->registerPanelScopedRenderHooks($panel);
     }
 
-    protected function registerRenderHooks(Panel $panel): void
+    protected function registerPanelScopedRenderHooks(Panel $panel): void
     {
-        try {
-            $alerts = app(SettingAlertBox::class)->alerts;
-        } catch (Throwable $e) {
-            return;
-        }
+        $alerts = static::getAlertsForPanel($panel->getId());
 
         if (! filled($alerts)) {
             return;
         }
 
-        $panelId = $panel->getId();
-
         foreach ($alerts as $alert) {
             $data = $alert['data'];
             $type = $alert['type'];
 
+            if (AlertBox::isCustomHook($data['hook'])) {
+                continue;
+            }
+
             FilamentView::registerRenderHook(
                 name: $data['hook'],
-                hook: function () use ($data, $panelId): string | View {
-                    if (filament()->getCurrentPanel()?->getId() !== $panelId) {
-                        return '';
-                    }
-
-                    return view('filament-alert-box::alert-box', ['preview' => false, 'config' => $data]);
-                },
+                hook: fn (): string | View => view('filament-alert-box::alert-box', ['preview' => false, 'config' => $data]),
                 scopes: AlertBox::getScopesPages($type, $data)
             );
+        }
+    }
+
+    public static function registerCustomHookRenderHooks(): void
+    {
+        $alertsList = static::getAllAlertsFlat();
+
+        if ($alertsList->isEmpty()) {
+            return;
+        }
+
+        foreach ($alertsList as $alert) {
+            $data = $alert['data'] ?? null;
+
+            if (! is_array($data) || ! AlertBox::isCustomHook($data['hook'] ?? '')) {
+                continue;
+            }
+
+            FilamentView::registerRenderHook(
+                name: $data['hook'],
+                hook: fn (): string | View => view('filament-alert-box::alert-box', ['preview' => false, 'config' => $data]),
+            );
+        }
+    }
+
+    public static function getAlertsForPanel(string $panelId): array
+    {
+        $raw = static::getRawAlerts();
+
+        if (empty($raw)) {
+            return [];
+        }
+
+        if (AlertBox::isLegacyAlertsFormat($raw)) {
+            return $raw;
+        }
+
+        return $raw[$panelId] ?? [];
+    }
+
+    protected static function getAllAlertsFlat(): Collection
+    {
+        $raw = static::getRawAlerts();
+
+        if (empty($raw)) {
+            return collect();
+        }
+
+        if (AlertBox::isLegacyAlertsFormat($raw)) {
+            return collect($raw);
+        }
+
+        return collect($raw)->flatten(1);
+    }
+
+    protected static function getRawAlerts(): array
+    {
+        try {
+            return app(SettingAlertBox::class)->alerts;
+        } catch (Throwable $e) {
+            return [];
         }
     }
 

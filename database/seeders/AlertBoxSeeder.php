@@ -2,7 +2,10 @@
 
 namespace Agencetwogether\AlertBox\Database\Seeders;
 
+use Agencetwogether\AlertBox\AlertBoxPlugin;
 use Agencetwogether\AlertBox\Settings\SettingAlertBox;
+use Filament\Facades\Filament;
+use Filament\Panel;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
 
@@ -10,8 +13,45 @@ class AlertBoxSeeder extends Seeder
 {
     public function run(): void
     {
-        $settings = app(SettingAlertBox::class);
+        $panelIds = $this->resolvePanelsWithPlugin();
 
+        if (empty($panelIds)) {
+            $this->command?->warn(
+                'AlertBoxPlugin is not registered on any panel. Nothing to seed. '
+                . 'Make sure AlertBoxPlugin::make() is added to your PanelProvider before running this seeder.'
+            );
+
+            return;
+        }
+
+        /** @var SettingAlertBox $settings */
+        $settings = app(SettingAlertBox::class);
+        $allAlerts = $settings->alerts;
+
+        foreach ($panelIds as $panelId) {
+            $existing = $allAlerts[$panelId] ?? [];
+            $allAlerts[$panelId] = array_merge($existing, $this->buildAlerts());
+
+            $this->command?->info("Seeded demo alerts for panel [{$panelId}].");
+        }
+
+        $settings->alerts = $allAlerts;
+        $settings->save();
+    }
+
+    /**
+     * Returns the ids of every panel where AlertBoxPlugin is currently registered.
+     */
+    protected function resolvePanelsWithPlugin(): array
+    {
+        return collect(Filament::getPanels())
+            ->filter(fn (Panel $panel): bool => $panel->hasPlugin(AlertBoxPlugin::ID))
+            ->keys()
+            ->all();
+    }
+
+    protected function buildAlerts(): array
+    {
         $alerts = [
             [
                 'data' => [
@@ -31,7 +71,7 @@ class AlertBoxSeeder extends Seeder
             $alerts[] = [
                 'data' => [
                     'hook' => 'panels::page.end',
-                    'pages' => $this->resolveFilamentPageClass(),
+                    'pages' => $pageClass,
                     'style' => 'tip',
                     'title' => 'Change your password',
                     'content' => '<p>For safety, don&#039;t forget to change your password after your first logging.</p>',
@@ -41,9 +81,7 @@ class AlertBoxSeeder extends Seeder
             ];
         }
 
-        $existing = $settings->alerts;
-        $settings->alerts = array_merge($existing, $alerts);
-        $settings->save();
+        return $alerts;
     }
 
     protected function resolveFilamentPageClass(string $keyword = 'Dashboard'): ?string

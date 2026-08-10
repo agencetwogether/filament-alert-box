@@ -246,4 +246,20 @@ class AlertBox
         return Arr::wrap($pages);
 
     }
+
+    public static function isCustomHook(string $hook): bool
+    {
+        return in_array($hook, config('filament-alert-box.custom_hooks', []), true);
+    }
+
+    public static function isLegacyAlertsFormat(array $alerts): bool
+    {
+        if (empty($alerts)) {
+            return false;
+        }
+
+        $first = reset($alerts);
+
+        return is_array($first) && array_key_exists('type', $first) && array_key_exists('data', $first);
+    }
 }

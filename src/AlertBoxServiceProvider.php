@@ -3,6 +3,7 @@
 namespace Agencetwogether\AlertBox;
 
 use Agencetwogether\AlertBox\Commands\InstallCommand;
+use Agencetwogether\AlertBox\Commands\MigrateAlertsToPanelsCommand;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -24,7 +25,12 @@ class AlertBoxServiceProvider extends PackageServiceProvider
 
     public function packageRegistered(): void {}
 
-    public function packageBooted(): void {}
+    public function packageBooted(): void
+    {
+        $this->app->booted(function () {
+            AlertBoxPlugin::registerCustomHookRenderHooks();
+        });
+    }
 
     /**
      * @return array<class-string>
@@ -33,6 +39,7 @@ class AlertBoxServiceProvider extends PackageServiceProvider
     {
         return [
             InstallCommand::class,
+            MigrateAlertsToPanelsCommand::class,
         ];
     }
 

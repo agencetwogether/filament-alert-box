@@ -33,6 +33,7 @@ Alerts are managed through a dedicated settings page in your panel and stored in
 ## Features
 
 - **3 alert scopes** — Resource, Page, Global
+- **Per-panel isolation** — alerts created in one panel are never visible in another
 - **6 built-in styles** — `info`, `tip`, `success`, `warning`, `danger`, `none`
 - **Native Filament render hooks** — place alerts at any registered hook point
 - **Settings UI** — fully manage alerts directly from your Filament panel
@@ -388,6 +389,37 @@ return [
     ],
 ];
 ```
+
+> [!NOTE]
+> **Custom hooks** are meant for views that live *outside* of any Filament panel
+> — for example a public-facing Blade view rendering `FilamentView::renderHook('my-custom-hook')`.
+> Unlike native `panels::*` hooks, they are always registered globally and are
+> never restricted to a single panel, even if the alert using them was created
+> from a specific panel's **Manage alerts** page. See [Alerts are scoped per panel](#alerts-are-scoped-per-panel) below.
+
+---
+
+## Alerts are scoped per panel
+
+If `AlertBoxPlugin` is registered in more than one panel (e.g. `admin` and `members`),
+each panel gets its **own, independent** list of alerts. An alert created from the
+**Manage alerts** page of the `admin` panel is only visible/editable there — it will
+not appear in `members`, and vice versa.
+
+The only exception is **custom hooks** (see [Configuration](#configuration)): since
+they are meant to render on pages outside of any panel context, alerts using a
+custom hook are always rendered globally, regardless of which panel's page was used
+to create them.
+
+### Migrating from a version prior to 2.0
+
+If you're upgrading from a version where alerts were shared across all panels, run:
+
+```bash
+php artisan filament-alert-box:migrate-alerts
+```
+
+See the [CHANGELOG](CHANGELOG.md#200) for full upgrade instructions.
 
 ---
 
